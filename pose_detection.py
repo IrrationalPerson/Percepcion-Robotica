@@ -27,7 +27,7 @@ def object_pose(model, depth_image, img, confidence, classes, intr, coord):
         for box in boxes:
             x1, y1, x2, y2 = box.xyxy[0]
             x1, x2, y1, y2 = int(x1), int(x2), int(y1), int(y2)
-            obj_conf = math.ceil(box.conf[0]*100)/100
+            # obj_conf = math.ceil(box.conf[0]*100)/100
             cls = int(box.cls[0])
             # for c in classes:
             if cls == classes:
@@ -39,11 +39,21 @@ def object_pose(model, depth_image, img, confidence, classes, intr, coord):
                 y = int(np.mean([y1, y2]))
 
                 # pos = rs.rs2_deproject_pixel_to_point(intr, [x, y], median_distance)
-                x_coord = median_distance * (x - intr.ppx) / intr.fx - coord[0]
-                y_coord = median_distance * (y - intr.ppy) / intr.fy - coord[1]
-                z_coord = median_distance - coord[2]
+                pos = rs.rs2_deproject_pixel_to_point(intr, [x, y], median_distance)
+                x_coord = pos[0] - coord[0]
+                # y_coord = pos[1] - coord[1]
+                y_coord = pos[2] - coord[1]
+
+                angle = -np.pi/3.0  # Good angle: -np.pi/3.0
+
+                x_coord_rot = np.cos(angle) * x_coord - np.sin(angle) * y_coord
+                y_coord_rot = np.sin(angle) * x_coord + np.cos(angle) * y_coord
+
+                # x_coord = median_distance * (x - intr.ppx) / intr.fx - coord[0]
+                # y_coord = median_distance * (y - intr.ppy) / intr.fy - coord[1]
+                # z_coord = median_distance - coord[2]
                 
-                print(f'Orange coordinates = ({x_coord:.2f}, {y_coord:.2f}, {z_coord:.2f})')
+                print(f'student coordinates = ({x_coord_rot:.2f}, {y_coord_rot:.2f})')
                 # print(median_distance)
                 # print(depth_image.shape)
                 # print(img.shape)
@@ -55,10 +65,18 @@ def object_pose(model, depth_image, img, confidence, classes, intr, coord):
 
 
                 print("x1; ", x1, " x2: ", x2, " y1: ", y1, " y2: ", y2)
-                cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
-                cvzone.putTextRect(img, f'Person Conf: {obj_conf}', (max(0, x1-40), max(35, y1-20)), scale=1.5, thickness=1)
+                if np.abs(y_coord_rot) < 0.90 and np.abs(x_coord_rot) < 1.70:
+                    colorRect = (0, 0, 255) # Red
+                else:
+                    colorRect = (0, 255, 0) # Green
+
+                cv2.rectangle(img, (x1, y1), (x2, y2), colorRect, 3)
+                # cvzone.putTextRect(img, f'Person Conf: {obj_conf}',
+                #                    (max(0, x1-40), max(35, y1-20)), scale=1.5, thickness=1)
                 # cvzone.putTextRect(img, f'Distance: {median_distance:.2f}m', (max(0, x1-40), max(35, y1-40)), scale=1.5, thickness=1)
-                cvzone.putTextRect(img, f'(x,y,z): ({x_coord:.2f}, {y_coord:.2f}, {z_coord:.2f})', (max(0, x1-40), max(35, y1-40)), scale=1.5, thickness=1)
+                cvzone.putTextRect(img, f'(x,y): ({x_coord_rot:.2f}, {y_coord_rot:.2f})',
+                                   (max(0, x1-40), max(35, y1-40)), scale=1.5, thickness=1,
+                                   colorR=colorRect)
 
 
 def object_detect(model, depth_image, img, confidence, classes, intr):
@@ -81,13 +99,18 @@ def object_detect(model, depth_image, img, confidence, classes, intr):
                 y = int(np.mean([y1, y2]))
 
                 # pos = rs.rs2_deproject_pixel_to_point(intr, [x, y], median_distance)
-                x_coord = median_distance * (x - intr.ppx) / intr.fx
-                y_coord = median_distance * (y - intr.ppy) / intr.fy
-                z_coord = median_distance
+                pos = rs.rs2_deproject_pixel_to_point(intr, [x, y], median_distance)
+                x_coord = pos[0]
+                # y_coord = pos[1]
+                y_coord = pos[2]
+
+                # x_coord = median_distance * (x - intr.ppx) / intr.fx
+                # y_coord = median_distance * (y - intr.ppy) / intr.fy
+                # z_coord = median_distance
                 
-                print(f'Apple coordinates = ({x_coord:.2f}, {y_coord:.2f}, {z_coord:.2f})')
+                print(f'origin coordinates = ({x_coord:.2f}, {y_coord:.2f})')
                 # print(x1, y1, x2, y2)
-                return [x_coord, y_coord, z_coord]
+                return [x_coord, y_coord]
     return []
 
 # filters
@@ -139,19 +162,19 @@ if __name__ == "__main__":
 
     model = YOLO('yolov8n.pt')
 
-    apple = 47
-    orange = 49
+    origin = 11
+    student = 0
     
-    apple_coord = []
+    origin_coord = []
     
-    while not apple_coord:
+    while not origin_coord:
         depth_image, img = get_image(pipeline, align)
-        apple_coord = object_detect(model, depth_image, img, confidence=0.05, classes=apple, intr=intr)
+        origin_coord = object_detect(model, depth_image, img, confidence=0.05, classes=origin, intr=intr)
 
-    # x1 = detect_apple[0]
-    # y1 = detect_apple[1]
-    # x2 = detect_apple[2]
-    # y2 = detect_apple[3]
+    # x1 = detect_origin[0]
+    # y1 = detect_origin[1]
+    # x2 = detect_origin[2]
+    # y2 = detect_origin[3]
 
     # x = int(np.mean(x1, x2))
     # y = int(np.mean(y1, y2))
@@ -160,10 +183,10 @@ if __name__ == "__main__":
     while True:
         
         depth_image, img = get_image(pipeline, align)
-        object_pose(model, depth_image, img, confidence=0.15, classes=orange, intr=intr, coord=apple_coord)
+        object_pose(model, depth_image, img, confidence=0.15, classes=student, intr=intr, coord=origin_coord)
         
         cv2.imshow("Image", img)
-        if cv2.waitKey(1) == ord('q') or cv2.waitKey(1) == 27:
+        if cv2.waitKey(1) == ord('q'):
             break
         
 
