@@ -23,7 +23,7 @@ The following step of the integration was deciding which object would represent 
 
 The next step was to establish communication with the camera and get the intrinsic properties of it to use them later for calculating distances. 
 
-The second part of the code, was related to the object pose detection and coordinates calculation. By using the **YOLOv8** algorithm, the program first searches for the STOP sign inside the workspace. When detected, the program saves the coordinates and sets the Danger and the _Safe Zone_ for the Red and Green Protocols respectively. 
+The second part of the code, was related to the object pose detection and coordinates calculation. By using the **YOLOv8** algorithm, the program first searches for the STOP sign inside the workspace. When detected, the program saves the coordinates and sets the _Danger_ and the _Safe Zone_ for the Red and Green Protocols respectively. 
 
 After the origin is set, the program will be continuously searching for persons inside the workspace and reproduce the image taken of the workspace. If a person is detected, the program will calculate the median of the bounding box containing the person and then get the pose with respect to the origin. Afterwards, the coordinates are rotated with a transformation matrix to align the position of the student with the axes plane of the machine that is being monitored.
 
